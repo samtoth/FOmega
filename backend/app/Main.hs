@@ -26,6 +26,7 @@ import GHC.TypeLits
 import GhcDriver
 import Network.HTTP.Media ((//))
 import Network.Wai.Handler.Warp
+import Network.Wai.Middleware.Cors
 import Network.Wai.Middleware.RequestLogger
 import Servant
 
@@ -64,4 +65,6 @@ myApp :: Application
 myApp = serve coreApi coreServer
 
 main :: IO ()
-main = print "running on localhost:3030/" >> (run 3030 $ logStdoutDev $ myApp)
+main =
+  print "running on localhost:3030/"
+    >> (run 3030 $ simpleCors $ logStdoutDev $ myApp)

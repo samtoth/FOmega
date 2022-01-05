@@ -12,16 +12,22 @@ import Data.ByteString.Lazy as LB
 import Data.String (IsString)
 import Data.Text as T
 import Data.Text.Encoding as T
+import qualified Data.Text.Encoding as BS
 import Data.Text.Lazy as LT
 import Data.Text.Lazy.Encoding as LT
 import FastString
 import GHC
+import Literal
 import Module
 import OccName (HasOccName (occName), OccName (occNameFS))
 import Text.LaTeX
 import Text.LaTeX.Base.Class
-import Text.LaTeX.Packages.AMSMath (align, cases)
+import Text.LaTeX.Packages.AMSFonts (mathbb)
+import Text.LaTeX.Packages.AMSMath (align, cases, medspace, space)
 import Text.LaTeX.Packages.Relsize (textlarger)
+import TyCoRep
+import TyCon
+import Var
 
 renderTex :: LaTeX -> T.Text
 renderTex = render
@@ -45,12 +51,88 @@ instance Texy CoreModule where
 
 instance Texy CoreBind where
   texy (NonRec bind expr) = mathrm (texy $textOccName bind) & "=" & texy expr <> lnbk
-  texy (Rec binds) = multicolumn 3 [RightColumn] (array Nothing [VerticalLine, RightColumn, CenterColumn, LeftColumn] (mconcat . fmap f $ binds)) <> lnbk
+  texy (Rec binds) = multicolumn 3 [LeftColumn] (array Nothing [VerticalLine, RightColumn, CenterColumn, LeftColumn] (mconcat . fmap f $ binds)) <> lnbk
     where
-      f (bind, expr) = mathrm (texy $textOccName bind) & "=" & texy expr <> lnbk
+      f (bind, expr) = mathrm (texy $ textOccName bind) & "=" & texy expr <> lnbk
 
 instance Texy CoreExpr where
   texy = \case
+    Var bind -> texy bind
+    Lit lit -> texy lit
+    App expr arg -> autoParens (texy expr <> space <> texy arg)
+    Lam bind expr ->
+      ( if isId bind
+          then lambda
+          else {- isTyVar = not isId -}
+            lambdau
+      )
+        <> texy bind
+        <> "."
+        <> quad
+        <> texy expr
+    Let bind expr -> "Let " <> texy bind <> qquad <> "in " <> texy expr
+    Type ty -> texy ty
+    Case expr bind ty arms ->
+      "Case" !: texy ty <> quad <> texy bind <> "of" <> lnbk
+        <> raw "&&"
+        <> cases (mconcat . fmap ((<> lnbk) . texy . MkAlt) $ arms)
+    other -> "expr"
+    Cast expr coerc -> _
+    Tick _ expr -> _
+    Coercion co -> _
+
+newtype AltNt = MkAlt (Alt CoreBndr)
+
+instance Texy AltNt where
+  texy (MkAlt (conType, binds, expr)) =
+    texy conType
+      <> medspace
+      <> (mconcat . fmap ((<> medspace) . texy)) binds
+      & rightarrow
+      <> texy expr
+
+instance Texy AltCon where
+  texy = \case
+    DataAlt dataCon -> texy . textOccName . getName $ dataCon
+    LitAlt lit -> ""
+    DEFAULT -> texttt "DEFAULT"
+
+instance Texy Id where
+  texy bind =
+    let name = textOccName bind
+        ty = varType bind
+     in (if isTyVar bind then textit $ texy name else textrm $ texy name) ^: texy ty
+
+instance Texy Literal where
+  texy = \case
+    LitChar c -> "'" <> texttt (texy c) <> "''"
+    LitString s -> "\"" <> textit (texy . BS.decodeUtf8 $s) <> "\""
+    LitNumber litTy int ty -> texy int
+    LitFloat rat -> texy rat
+    LitDouble rat -> texy rat
+    other -> "unkown literal"
+
+instance Texy Type where
+  texy = \case
+    TyVarTy var -> texy $ textOccName var
+    AppTy t1 t2 -> autoParens (texy t1 <> space <> texy t2)
+    TyConApp t ts -> texy t <> space <> (mconcat . fmap texy) ts
+    ForAllTy bind t -> forall <> texy bind <> ". " <> texy t
+    FunTy _ t1 t2 -> autoParens (texy t1 <> rightarrow <> texy t2)
+    LitTy lit -> case lit of
+      NumTyLit int -> mathbb $ texy int
+      StrTyLit fs -> textbf $ "\"" <> texy fs <> "\""
+    CastTy t co -> "castTy"
+    CoercionTy coercion -> "coercionTy"
+
+instance Texy TyCoVarBinder where
+  texy (Bndr var arg) = texy var
+
+instance Texy TyCon where
+  texy con = let name = tyConName con in texy $ textOccName name
+
+instance Texy FastString where
+  texy = texy . unpackFS
 
 modName :: Module -> T.Text
 modName = T.pack . unpackFS . moduleNameFS . GHC.moduleName

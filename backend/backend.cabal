@@ -43,6 +43,7 @@ executable backend
                     , text
                     , transformers
                     , wai
+                    , wai-cors
                     , wai-extra
                     , warp
                     , HaTeX
