@@ -21,6 +21,14 @@ maintainer:         sam@toth.co.uk
 -- category:
 extra-source-files: CHANGELOG.md
 
+library fomega
+    exposed-modules:  FSyn
+
+    build-depends:    base
+
+    hs-source-dirs:   FOmega
+    default-language: Haskell2010
+
 executable backend
     main-is:          Main.hs
 
@@ -47,6 +55,7 @@ executable backend
                     , wai-extra
                     , warp
                     , HaTeX
+                    , fomega
 
     hs-source-dirs:   app
     default-language: Haskell2010

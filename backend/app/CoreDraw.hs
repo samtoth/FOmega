@@ -28,6 +28,8 @@ import Text.LaTeX.Packages.Relsize (textlarger)
 import TyCoRep
 import TyCon
 import Var
+import Data.Coerce (coerce)
+import Text.LaTeX.Packages.AMSSymb (vartriangleright)
 
 renderTex :: LaTeX -> T.Text
 renderTex = render
@@ -76,13 +78,14 @@ instance Texy CoreExpr where
       "Case" !: texy ty <> quad <> texy bind <> "of" <> lnbk
         <> raw "&&"
         <> cases (mconcat . fmap ((<> lnbk) . texy . MkAlt) $ arms)
-    other -> "expr"
-    Cast expr coerc -> _
-    Tick _ expr -> _
-    Coercion co -> _
+    Cast expr coerc -> texy expr <> vartriangleright <> texy coerc
+    Tick _ expr -> texy expr
+    Coercion co -> texy co
+
+instance Texy Coercion where
+  texy = const ""
 
 newtype AltNt = MkAlt (Alt CoreBndr)
-
 instance Texy AltNt where
   texy (MkAlt (conType, binds, expr)) =
     texy conType

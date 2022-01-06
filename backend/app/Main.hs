@@ -6,7 +6,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures -fdefer-typed-holes #-}
 
@@ -67,4 +66,4 @@ myApp = serve coreApi coreServer
 main :: IO ()
 main =
   print "running on localhost:3030/"
-    >> (run 3030 $ simpleCors $ logStdoutDev $ myApp)
+    >> run 3030 (simpleCors $ logStdoutDev myApp)

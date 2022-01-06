@@ -1,0 +1,16 @@
+cradle:
+  cabal:
+    - path: "FOmega"
+      component: "backend:lib:fomega"
+
+    - path: "app/Main.hs"
+      component: "backend:exe:backend"
+
+    - path: "app/GhcDriver.hs"
+      component: "backend:exe:backend"
+
+    - path: "app/CoreDraw.hs"
+      component: "backend:exe:backend"
+
+    - path: "app/FSyn.hs"
+      component: "backend:exe:backend"
