@@ -83,7 +83,26 @@ instance Texy CoreExpr where
     Coercion co -> texy co
 
 instance Texy Coercion where
-  texy = const ""
+  texy = \case
+    Refl ty -> textit "Refl " <> texy ty
+    GRefl ro ty mc -> _
+    TyConAppCo ro tc cos -> _
+    AppCo co co' -> _
+    ForAllCo var co co' -> _
+    FunCo ro co co' -> _
+    CoVarCo var -> texy var
+    AxiomInstCo ca n cos -> _
+    AxiomRuleCo car cos -> _
+    UnivCo ucp ro ty ty' -> _
+    SymCo co -> _
+    TransCo co co' -> _
+    NthCo ro n co -> _
+    LRCo lor co -> _
+    InstCo co co' -> _
+    KindCo co -> _
+    SubCo co -> _
+    HoleCo ch -> _
+
 
 newtype AltNt = MkAlt (Alt CoreBndr)
 instance Texy AltNt where

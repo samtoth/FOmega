@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
 
@@ -6,39 +6,53 @@ import Html exposing (Html, button, div, text, input, textarea)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 
+import Dict
+
 import Http
 
-import TLWND as TW
-
+import Json.Encode as E
+import Http exposing (request)
 
 type alias Flags = ()
 
-main = Browser.element { init = \() -> ( init, Cmd.none )
+main : Program Flags Model Msg
+main = Browser.element { init = \_ -> ( init, Cmd.none )
         , view = view
         , update = update
         , subscriptions = \_ -> Sub.none
         }
 
-type alias Model = {source: String, currentCore: String}
+type alias Model = {source: String, extensions: String}
+
+type alias CoreRequest = Model
+encode : CoreRequest -> E.Value
+encode req =
+  E.dict identity E.string
+    (Dict.fromList [ ("source", req.source),
+    ("extensions", req.extensions)
+    ])
+
+port renderLatex : {target: String, tex: String} -> Cmd msg
 
 type alias CoreResult = Result Http.Error String
 
 type Msg =   RequestCore
            | CoreReceived CoreResult
-           | InputChange String
+           | SourceChanged String
+           | ExtensionChanged String
 
 
 init : Model
 init = {
     source = "module Blah where\n  f x = x",
-    currentCore =  ""
+    extensions =  ""
     }
 
-requestCore : String -> Cmd Msg
-requestCore s = Http.post
+requestCore : CoreRequest -> Cmd Msg
+requestCore req = Http.post
     { 
-    url = "http://localhost:3030/core"
-    , body = Http.stringBody "text/plain;charset=utf-8" s
+     l url = "http://localhost:3030/core"
+    , body = Http.jsonBody (encode req)
     , expect = Http.expectString CoreReceived
     }
 
@@ -53,18 +67,22 @@ interpretCoreErr err = case err of
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model = case msg of
-    RequestCore       -> (model, requestCore model.source)
-    CoreReceived res -> (case res of
-        Ok svg -> {model | currentCore = svg} 
-        Err e -> {model | currentCore = "ERROR: " ++ interpretCoreErr e},
-        Cmd.none)
-    InputChange text  -> ({ model | source = text }, Cmd.none)
+    RequestCore       -> (model, requestCore (Debug.log "model req: " model))
+    CoreReceived res -> case res of
+        Ok latex -> (model, renderLatex {target = "KaTeX", tex = latex}) 
+        Err e -> (model, renderLatex {target = "KaTeX", tex = ("ERROR: " ++ interpretCoreErr e)})
+    SourceChanged text  -> ({ model | source = text }, Cmd.none)
+    ExtensionChanged text -> ( {model | extensions = text}, Cmd.none)
 
 view : Model -> Html Msg
-view {source, currentCore} = 
-  div [class "flex flex-row width-100"]
+view {source, extensions} = 
+  div [] [div [class "flex flex-row width-100"]
     [  
-     textarea [class "w-1/2 flex-grow font-mono resize-none border-r-1 border-black p-5", cols 40, rows 10, value source, onInput InputChange] []
+      div [class "w-1/2 flex-grow flex-col" ] [
+     textarea [class "w-full font-mono resize-none border-r-1 border-black p-5", cols 40, rows 10, value source, onInput SourceChanged] []
+     ,input [class "w-full font-mono border-t-1", placeholder "Language extensions...", value extensions, onInput ExtensionChanged] []
+      ]
     ,button [class "w-8 hover:text-blue-500", onClick RequestCore] [ div [class "text-lg font-bold m-2"] [text "»" ]]
-    ,div [class "w-1/2 flex-grow border-l-1 border-black p-5"] [text currentCore]
-    ]
+    ,div [class "w-1/2 flex-grow border-l-1 border-black p-5", id "KaTeX"] []
+    ],
+    div [] [text source, text extensions]]

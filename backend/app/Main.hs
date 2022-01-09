@@ -8,6 +8,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures -fdefer-typed-holes #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main where
 
@@ -28,12 +30,18 @@ import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Cors
 import Network.Wai.Middleware.RequestLogger
 import Servant
+import Data.Aeson
+import Data.Aeson.TH
+import Network.Wai (Middleware)
 
-type CoreDrawApi =
-  "core" :> ReqBody '[PlainText] HsSource :> Post '[Latex] CoreResult
+data HsSource = MkSource {extensions :: T.Text, source :: T.Text}
 
-newtype HsSource = MkSource T.Text
-  deriving (IsString, MimeUnrender PlainText)
+deriveJSON defaultOptions ''HsSource
+
+toSource :: HsSource -> T.Text
+toSource MkSource {source, extensions} = case T.unpack extensions of
+                                          [] -> source
+                                          _  ->  "{-# LANGUAGE " <> extensions <> " #-}\n" <> source 
 
 newtype CoreResult = MkCoreResult T.Text
   deriving (IsString)
@@ -46,12 +54,15 @@ instance Accept Latex where
 instance MimeRender Latex CoreResult where
   mimeRender _ (MkCoreResult text) = LB.fromChunks . return . T.encodeUtf8 $ text
 
+type CoreDrawApi =
+  "core" :> ReqBody '[JSON] HsSource :> Post '[Latex] CoreResult
+
 coreServer :: Server CoreDrawApi
 coreServer = coreHandler
   where
     coreHandler :: HsSource -> Handler CoreResult
-    coreHandler (MkSource src) = do
-      res <- liftIO $ compileSource (LT.fromStrict src)
+    coreHandler src = do
+      res <- liftIO $ compileSource (LT.fromStrict.toSource $  src)
       case res of
         Left err -> throwError $ err400 {errBody = LB.pack . read $ ("Error compiling source to core: " <> err)}
         Right cMod -> do
@@ -63,7 +74,13 @@ coreApi = Proxy
 myApp :: Application
 myApp = serve coreApi coreServer
 
+corsWithContentType :: Middleware
+corsWithContentType = cors (const $ Just policy)
+    where
+      policy = simpleCorsResourcePolicy
+        { corsRequestHeaders = ["Content-Type"] }
+
 main :: IO ()
 main =
   print "running on localhost:3030/"
-    >> run 3030 (simpleCors $ logStdoutDev myApp)
+    >> run 3030 (corsWithContentType . logStdoutDev $ myApp)
