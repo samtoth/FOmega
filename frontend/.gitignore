@@ -2,3 +2,6 @@ elm-stuff/
 node_modules/
 tailwind/
 yarn.lock
+yarn-error.log
+.yarn
+.yarnrc

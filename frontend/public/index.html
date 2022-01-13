@@ -1,42 +1,56 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
-    <style>
-        /* LaTeX display environment will effect the LaTeX characters but not the layout on the page */
-        span.katex-display {
-          display: inherit; /* You may comment this out if you want the default behavior */
-        }
-      </style>
-      <link rel="stylesheet" href="assets/css/styles.css">
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.css" integrity="sha384-R4558gYOUz8mP9YWpZJjofhk+zx0AS11p36HnD2ZKj/6JR5z27gSSULCNHIRReVs" crossorigin="anonymous">
-      <script defer src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.js" integrity="sha384-z1fJDqw8ZApjGO3/unPWUPsIymfsJmyrDVWC8Tv/a1HeOtGmkwNd/7xUS0Xcnvsx" crossorigin="anonymous"></script>
-      <script src="assets/js/elm.js"></script>
-    <title></title>
-  </head>
-  <body>
-    <div id="myapp"></div>
 
-    <!-- Run the app + render LaTeX using KaTeX (note the seperate script tags!) -->
-    <script>
-        var app = Elm.Main.init({
-          node: document.getElementById('myapp')
-        });
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+  <style>
+    /* LaTeX display environment will effect the LaTeX characters but not the layout on the page */
+    span.katex-display {
+      display: inherit;
+      /* You may comment this out if you want the default behavior */
+    }
+  </style>
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.css"
+    integrity="sha384-R4558gYOUz8mP9YWpZJjofhk+zx0AS11p36HnD2ZKj/6JR5z27gSSULCNHIRReVs" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.js"
+    integrity="sha384-z1fJDqw8ZApjGO3/unPWUPsIymfsJmyrDVWC8Tv/a1HeOtGmkwNd/7xUS0Xcnvsx"
+    crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js"
+    integrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"
+    onload="renderMathInElement(document.body);"></script>
+  <script src="assets/js/elm.js"></script>
+  <title></title>
+</head>
 
-        app.ports.renderLatex.subscribe(function(message) {
-            katex.render(message.tex, document.getElementById(message.target), {
-                delimiters: [
-                    {
-                    left: "$", 
-                    right: "$", 
-                    display: false
-                    }, 
-                    {
-                    left: "$$",
-                    right: "$$", 
-                    display: true
-                    }]});
+<body>
+  <div id="myapp"></div>
+
+  <!-- Run the app + render LaTeX using KaTeX (note the seperate script tags!) -->
+  <script>
+    var app = Elm.Main.init({
+      node: document.getElementById('myapp')
+    });
+
+    app.ports.renderLatex.subscribe(function (message) {
+      window.requestAnimationFrame(() => {
+        console.log(message.tex)
+        renderMathInElement(document.getElementById("KaTeX"), {
+          delimiters: [
+            {
+              left: "$",
+              right: "$",
+              display: false
+            },
+            {
+              left: "$$",
+              right: "$$",
+              display: true
+            }]
         });
-    </script>
-  </body>
+      })
+    });
+  </script>
+</body>
+
 </html>

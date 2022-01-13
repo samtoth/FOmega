@@ -7,10 +7,20 @@ module.exports = {
     },
     darkMode: false, // or 'media' or 'class'
     theme: {
-        extend: {},
+        extend: {
+            'serif': ["Volkorn", "Palatino", 'ui-serif', 'Georgia'],
+            typography: {
+                    css: {
+                        h1: {
+                            textAlign: 'center'
+                        },
+                    }
+            }
+        }
     },
     variants: {
         extend: {},
     },
-    plugins: [],
+    plugins: [require('@tailwindcss/typography'),],
 }
+
