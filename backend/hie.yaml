@@ -1,8 +1,5 @@
 cradle:
   cabal:
-    - path: "FOmega"
-      component: "backend:lib:fomega"
-
     - path: "app/Main.hs"
       component: "backend:exe:backend"
 
@@ -12,5 +9,14 @@ cradle:
     - path: "app/CoreDraw.hs"
       component: "backend:exe:backend"
 
-    - path: "app/FSyn.hs"
+    - path: "app/AnnDraw.hs"
       component: "backend:exe:backend"
+
+    - path: "app/Data/Module.hs"
+      component: "backend:exe:backend"
+
+    - path: "app/Data/AnnCore.hs"
+      component: "backend:exe:backend"
+
+    - path: "FOmega"
+      component: "backend:lib:fomega"

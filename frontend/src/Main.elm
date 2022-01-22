@@ -192,7 +192,7 @@ update msg model =
             ( model, requestCore { source = model.source, extensions = model.extensions } )
 
         CoreReceived res ->
-            ( { model | coreResult = Just res }, renderLatex {target = "eq", tex = "$ = $"} )
+            ( { model | coreResult = Just res }, renderLatex { target = "eq", tex = "$ = $" } )
 
         SourceChanged text ->
             ( { model | source = text }, Cmd.none )
@@ -246,9 +246,19 @@ viewBinding bb =
         Binding b ->
             div []
                 [ span [ class "font-bold" ] [ text b.bindName ]
-                , span [] [text " $\\leftarrow$ "]
-                , span [] [ text <| "$" ++ b.bindBody ++"$"]
+                , span [] [ text " $\\leftarrow$ " ]
+                , span [] [ text <| "$" ++ b.bindBody ++ "$" ]
                 ]
 
         RecursiveBinding bs ->
-            Debug.todo ""
+            div [ class "" ]
+                (List.map
+                    (\b ->
+                        div []
+                            [ span [ class "font-bold" ] [ text b.bindName ]
+                            , span [] [ text " $\\leftarrow$ " ]
+                            , span [] [ text <| "$" ++ b.bindBody ++ "$" ]
+                            ]
+                    )
+                    bs
+                )

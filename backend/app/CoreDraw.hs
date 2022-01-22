@@ -1,13 +1,12 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures -fdefer-typed-holes #-}
 
-module CoreDraw (drawModule, ProcessedModule) where
+module CoreDraw (drawAnnModule, drawModule, ProcessedModule) where
 
-import CoreSyn
+import CoreSyn hiding (AnnBind)
 import CoreUtils
 import Data.Aeson (ToJSON, object, toJSON, (.=))
 import Data.ByteString as BS
@@ -35,37 +34,11 @@ import TyCoRep
 import TyCon
 import Util (partitionWith)
 import Var
+import Data.Module
+import Data.AnnCore
+import Control.Monad.Reader
+import AnnDraw
 
-data ProcessedModule = MkMod
-  { pm_name :: T.Text,
-    pm_mainBinds :: [ProcessedBindgroup],
-    pm_specialBinds :: [ProcessedBindgroup],
-    pm_types :: ProcessedTypeEnv
-  }
-  deriving (Generic, Show)
-
-instance ToJSON ProcessedBind
-
-instance ToJSON ProcessedBindgroup
-
-instance ToJSON ProcessedModule where
-  toJSON MkMod {pm_name=n, pm_mainBinds=b, pm_specialBinds = sb, pm_types=t} = object [
-      "name" .= n, "main_binds" .= b, "special_binds" .= sb, "types" .= t
-    ]
-
-type ProcessedTypeEnv = ()
-
-data ProcessedBindgroup
-  = Binding ProcessedBind
-  | RecursiveBinding [ProcessedBind]
-  deriving (Generic, Show)
-
-data ProcessedBind = MkProcessedBind
-  { bindName :: T.Text,
-    bindType :: T.Text,
-    bindBody :: T.Text
-  }
-  deriving (Generic, Show)
 
 renderTex :: LaTeX -> T.Text
 renderTex = render
@@ -107,6 +80,29 @@ processBinding b e =
       bindBody = renderTex . texy $ e
     }
 
+
+drawAnnModule :: CoreModule -> ProcessedModule
+drawAnnModule = f.annotateModule
+    where f :: AnnModule -> ProcessedModule
+          f (MkAM _ n b sb) = MkMod {
+            pm_name = n,
+            pm_mainBinds = processAnnBindGroup <$> b,
+            pm_specialBinds = processAnnBindGroup <$> sb,
+            pm_types = ()
+          }
+
+processAnnBindGroup :: AnnBindGroup -> ProcessedBindgroup
+processAnnBindGroup = \case
+  ABNonRec bind -> Binding $ processAnnBinding bind
+  ABRec binds   -> RecursiveBinding . fmap processAnnBinding $ binds
+
+processAnnBinding :: AnnBind -> ProcessedBind
+processAnnBinding (MkAB bndr expr) = MkProcessedBind {
+  bindName = ab_name bndr,
+  bindType = renderTex . texy . ae_type $ expr,
+  bindBody = renderTex . texy $ expr
+}
+
 instance Texy CoreModule where
   texy
     CoreModule
@@ -131,7 +127,7 @@ instance Texy CoreExpr where
   texy = \case
     Var bind -> texy bind
     Lit lit -> texy lit
-    App expr arg -> autoParens (texy expr <> space <> texy arg)
+    App expr arg -> (case expr of {App _ _' -> id ; _ -> autoParens}) (texy expr <> space <> texy arg)
     Lam bind expr ->
       ( if isId bind
           then lambda
@@ -142,7 +138,7 @@ instance Texy CoreExpr where
         <> "."
         <> quad
         <> texy expr
-    Let bind expr -> "Let " <> texy bind <> qquad <> "in " <> texy expr
+    Let bind expr -> "Let " <> quad <> texy bind <> quad <> "in " <> texy expr
     Type ty -> texy ty
     Case expr bind ty arms ->
       "Case" !: texy ty <> quad <> texy bind <> "of" <> lnbk
@@ -183,11 +179,9 @@ instance Texy AltNt where
       & rightarrow
       <> texy expr
 
-instance Texy AltCon where
-  texy = \case
-    DataAlt dataCon -> texy . textOccName . getName $ dataCon
-    LitAlt lit -> ""
-    DEFAULT -> texttt "DEFAULT"
+
+instance Texy TyCoVarBinder where
+  texy (Bndr var arg) = texy var
 
 instance Texy Id where
   texy bind =
@@ -195,19 +189,12 @@ instance Texy Id where
         ty = varType bind
      in (if isTyVar bind then textit $ texy name else textrm $ texy name) ^: texy ty
 
-instance Texy Literal where
-  texy = \case
-    LitChar c -> "'" <> texttt (texy c) <> "''"
-    LitString s -> "\"" <> textit (texy . BS.decodeUtf8 $s) <> "\""
-    LitNumber litTy int ty -> texy int
-    LitFloat rat -> texy rat
-    LitDouble rat -> texy rat
-    other -> "unkown literal"
+
 
 instance Texy Type where
   texy = \case
     TyVarTy var -> texy $ textOccName var
-    AppTy t1 t2 -> autoParens (texy t1 <> space <> texy t2)
+    AppTy t1 t2 -> (case t1 of {AppTy _ _ -> id ; _ -> autoParens }) (texy t1 <> space <> texy t2)
     TyConApp t ts -> texy t <> space <> (mconcat . fmap texy) ts
     ForAllTy bind t -> forall <> texy bind <> ". " <> texy t
     FunTy _ t1 t2 -> autoParens (texy t1 <> rightarrow <> texy t2)
@@ -217,17 +204,5 @@ instance Texy Type where
     CastTy t co -> "castTy"
     CoercionTy coercion -> "coercionTy"
 
-instance Texy TyCoVarBinder where
-  texy (Bndr var arg) = texy var
 
-instance Texy TyCon where
-  texy con = let name = tyConName con in texy $ textOccName name
 
-instance Texy FastString where
-  texy = texy . unpackFS
-
-modName :: Module -> T.Text
-modName = T.pack . unpackFS . moduleNameFS . GHC.moduleName
-
-textOccName :: HasOccName n => n -> T.Text
-textOccName = T.pack . unpackFS . occNameFS . occName

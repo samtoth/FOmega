@@ -61,7 +61,7 @@ coreServer = coreHandler
       res <- liftIO $ compileSource (LT.fromStrict . toSource $ src)
       case res of
         Left err -> pure . Main.Error $ ("GHC Error: \n\t" <> T.pack err)
-        Right cMod -> pure . Main.Success . drawModule $ cMod
+        Right cMod -> pure . Main.Success . drawAnnModule $ cMod
 
 coreApi :: Proxy CoreDrawApi
 coreApi = Proxy
