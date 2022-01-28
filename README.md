@@ -1,7 +1,5 @@
-# FΩ
+# ![Logo](https://raw.githubusercontent.com/samtoth/FOmega/main/frontend/public/favicon.ico)
+[:train2: youtrack](https://fomega.youtrack.cloud)
 
-A collection of projects relating to creating a new 'frontend' to haskell. 
+Fω (FOmega) is an implementation of a modern functional language built on top of the ghc compiler backend. With focus on type level programming and an integrated structural editor
 
- * Transpiling from a functional language derived from System F Omega to Haskell Core Language.
-
- * Accompanied by a modern editor that allows users to directly manipulate the ast
