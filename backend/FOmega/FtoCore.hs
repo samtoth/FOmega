@@ -15,6 +15,8 @@
 {-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+
 module FtoCore where
 
     import Data.FSyn
@@ -195,9 +197,6 @@ module FtoCore where
     
     caseArmToCore :: FCaseArm 0 -> FTCM Syn.CoreAlt
     caseArmToCore = _
-
-    type NplusM :: Constraint
-    type NplusM = forall n. (1 <= n) => (1 <= n + 1)
 
     tyBndrToCore :: (1 <= n, Data.FSyn.Sig n ~ FSig (n + 1)) => FBndr n -> FTCM Syn.CoreBndr
     tyBndrToCore (MkBndr name sig) = mkTyVar <$> (mkName . T.unpack) name <*> typeToCore sig
