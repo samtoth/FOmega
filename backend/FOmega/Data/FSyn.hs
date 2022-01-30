@@ -28,18 +28,25 @@ type FTerm = 0
 type FType = 1
 type FKind = 2
 
-type Sig :: Universe -> *
-type Sig a = FSig (Lift a)
+type Sig :: * -> *
+type family Sig a where
+  Sig (FExpr a) = FSig (Lift a)
 
-data FBndr e = MkBndr T.Text (Sig e)
+type FUName = T.Text
+
+data FBndr e = MkBndr FUName (FSig (Lift e))
   deriving (Eq)
+
+
 data FData = MkData -- TODO!
-  deriving (Eq)
-data FBinding a = MkBinding -- TODO!
   deriving (Eq)
 data FCaseArm a = MkArms -- TODO!
   deriving (Eq)
 data FLiteral = MkLit -- TODO!
+  deriving (Eq)
+data FClassDef a = MkCD -- TODO!
+  deriving (Eq)
+data FInstanceHead a = MkIH -- TODO!
   deriving (Eq)
 
 data FModule = MkFM {
@@ -47,24 +54,32 @@ data FModule = MkFM {
 , fm_bindings :: [FDeclaration FTerm]
 }
 
- -- | Declaration is parameterised over universe  
- -- |
+ -- | Declaration is parameterised over universe
 data FDeclaration :: Universe -> * where
-  ValDec :: FBndr a -> FExpr a -> FDeclaration a
-  DataDecl :: (0 <= a ) => FBndr a -> FData -> FDeclaration a
+  ValDecl :: Bool -- ^ Exported?
+          -> FBinding a
+          -> FDeclaration a
+  DataDecl :: (1 <= a ) => FBndr a -> FData -> FDeclaration a
+  ClassDecl :: FClassDef a -> FDeclaration a
+  InstanceDef :: FInstanceHead a -> FDeclaration a
 
 deriving instance Eq (FDeclaration n)
+
+
+data FBinding a = MkBinding (FBndr a) (FExpr a)
+  deriving (Eq)
 
 data FExpr :: Universe -> * where
   Var :: FBndr a -> FExpr a
   App :: FExpr a -> FExpr a -> FExpr a
   Abs :: FBndr a -> FExpr a -> FExpr a
   Let :: [FBinding a] -> FExpr a -> FExpr a
-  Case :: FExpr a -> Sig a -> [FCaseArm a] -> FExpr a
+  Case :: (k ~ FExpr a) => k -> Sig k -> [FCaseArm a] -> FExpr a
   TypeApp :: FExpr a -> FExpr (Lift a) -> FExpr a
   TypeAbs :: FBndr (Lift a) -> FExpr a -> FExpr a
   Lit :: FLiteral -> FExpr a
-  deriving (Eq)
+  
+deriving instance Eq (FExpr a)
 
 data FSig :: Universe -> * where
   SVar :: FBndr a -> FSig a

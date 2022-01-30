@@ -69,6 +69,7 @@ library fomega
                     , mtl
                     , containers
                     , ghc-typelits-natnormalise
+                    , unordered-containers
 
     hs-source-dirs:   FOmega
     default-language: Haskell2010
