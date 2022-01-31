@@ -20,6 +20,8 @@ import qualified Data.Text as T
 import Data.Functor
 import Data.Bifunctor
 
+import Data.FErr
+
 type Universe = Nat
 type Lift :: Universe -> Universe
 type Lift a = (a + 1)
@@ -88,8 +90,6 @@ data FSig :: Universe -> * where
   SApp :: FSig a -> FSig a -> FSig a
   SLit :: FLiteral -> FSig a
   deriving (Eq)
-
-type FError = String
 
 typeof :: FExpr n -> Either FError (FSig (n+1))
 typeof = \case

@@ -60,6 +60,7 @@ executable backend
 
 library fomega
     exposed-modules:  Data.FSyn
+                    , Data.FErr
                     , FtoCore
 
     build-depends:    base
