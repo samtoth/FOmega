@@ -25,6 +25,12 @@ import Var
 import CoreSyn hiding (AnnExpr, AnnBind, AnnAlt)
 import Name
 
+instance Texy AnnModule where
+  texy (MkAM _ name mainBinds specialBinds) = documentclass [] article <> title (texy name) <> document ( maketitle <> align (
+       ((<> lnbk).(mempty &).texy) <$> (mainBinds <> specialBinds)
+    ))
+
+
 instance Texy (AnnExpr AnnTerm) where
     texy (MkAE (term, _) ty depth showty parens)
       = (if showty then (^: texy ty) else id) $

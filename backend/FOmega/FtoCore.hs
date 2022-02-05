@@ -290,7 +290,7 @@ module FtoCore where
   createLocalVar :: Name -> TyCoRep.Type -> Var
   createLocalVar name ty = mkLocalVar VanillaId name ty vanillaIdInfo --TODO: Investigate meaning of VanillaID
 
-  exprToCore :: FExpr 0 -> FTCM Syn.CoreExpr
+  exprToCore :: FExpr 0 n -> FTCM Syn.CoreExpr
   exprToCore = \case
     Var (MkBndr name _) -> Syn.Var <$> getVarByName name
     App fe fe' -> Syn.App <$> exprToCore fe <*> exprToCore fe'
@@ -303,7 +303,7 @@ module FtoCore where
         return $ Syn.Lam var expr 
           
     Let fbs fe -> letRec fe fbs
-      where letRec :: FExpr 0 -> [FBinding 0] -> FTCM Syn.CoreExpr
+      where letRec :: FExpr 0 n -> [FBinding 0] -> FTCM Syn.CoreExpr
             letRec e ((MkBinding (MkBndr name sig) fe):fbs) = do
                 eName <- registerNameInternal.T.unpack $ name
                 withName (name, eName) $ do
@@ -317,7 +317,7 @@ module FtoCore where
             letRec e []       = exprToCore e
 
     Case fe fs fcas -> do
-      let dty'' = typeof fe
+      let dty'' = sigof fe
       case dty'' of 
         Right dty' -> do
           expr <- exprToCore fe
@@ -328,7 +328,37 @@ module FtoCore where
           withName ("dummy", dummyName) $ withVar dummyVar $ do
             arms <- sequence (caseArmToCore <$> fcas)
             return $ Syn.Case expr dummyVar cty arms
-        Left e -> fail e
+        Left e -> fail.T.unpack.debugShow $ e
+    Lit fl -> error "Literals are TODO!"
+
+    
+  typeToCore :: FExpr 1 True -> FTCM (TyCoRep.Type, FTCLocal)
+  typeToCore = \case
+    Var (MkBndr name _) -> (,) <$> (TyCoRep.TyVarTy <$> getTyVarByName name) <*> pure mempty
+
+    --App fs fs' -> (,) <$> (TyCoRep.AppTy <$> (fst <$> typeToCore fs) <*> (fst <$> typeToCore fs')) <*> pure mempty
+
+    Map fs fs' -> do
+      (ty1, env1) <- typeToCore fs
+      local (appEnv env1) $ do
+        (ty2, env2) <- typeToCore fs'
+        return (TyCoRep.FunTy VisArg ty1 ty2, env1 <> env2)    -- Vis arg indicates (->) invis indicates (=>) when constraints are implemented
+
+    Forall (MkBndr name sig) fs -> do
+      (kind, kEnv) <- kindToCore sig
+      local (appEnv kEnv) $ do
+        name' <- registerNameInternal.T.unpack $ name 
+        let var = createLocalVar name' kind
+        withName (name, name') $ withVar var $ do
+          (ty, tEnv) <- typeToCore fs
+          return (TyCoRep.ForAllTy (Bndr var Specified) ty, kEnv <> tEnv)
+
+    Lit _ -> error "Literals are TODO!"
+
+  kindToCore :: FExpr 2 n -> FTCM (TyCoRep.Type, FTCLocal)
+  kindToCore = error "undefined"
+
+  {-
     TypeApp fe fe' -> Syn.App <$> exprToCore fe <*> (Syn.Type <$> typeExprToCore fe')
     TypeAbs (MkBndr fname sig) fe -> do
       (bkind, _) <- typeToCore sig
@@ -337,7 +367,7 @@ module FtoCore where
       withName (fname, name) $ withVar var $ do
         expr <- exprToCore fe
         return $ Syn.Lam var expr
-    Lit fl -> error "Literals are TODO!"
+
 
   typeToCore :: (1 <= n) => FSig n -> FTCM (TyCoRep.Type, FTCLocal)
   typeToCore = \case
@@ -360,6 +390,7 @@ module FtoCore where
 
     SApp fs fs' -> (,) <$> (TyCoRep.AppTy <$> (fst <$> typeToCore fs) <*> (fst <$> typeToCore fs')) <*> pure mempty
     SLit fl -> error "Literals are TODO!"
+    -}
 
 
   caseArmToCore :: FCaseArm 0 -> FTCM Syn.CoreAlt
@@ -368,9 +399,6 @@ module FtoCore where
   -- tyBndrToCore :: (1 <= n) => FBndr n -> FTCM Syn.CoreBndr
   -- tyBndrToCore (MkBndr name sig) = mkTyVar <$> (registerNameInternal . T.unpack) name <*> typeToCore sig
 
-
-  typeExprToCore :: FExpr 1 -> FTCM TyCoRep.Type
-  typeExprToCore = error "typeExprToCore"
 
 
 
