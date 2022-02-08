@@ -20,46 +20,44 @@
 module FtoCore where
 
   import Data.FSyn as F
-  import GHC.TypeLits hiding (Symbol)
 
   -- Compiler
   import GHC
-  import DynFlags
-  import HscMain
-  import HscTypes
 
   -- Core Types
-  import Var
-  import Name
-  import Avail
-  import IdInfo
-  import Module
-  import Unique
-  import OccName
-  import InstEnv
-  import NameSet
-  import VarSet
-  import RdrName
-  import FamInstEnv
-  import TyCoRep
-  import qualified Stream
-  import qualified CoreSyn as Syn
+  import qualified GHC.Core as Syn
+  import GHC.Core.TyCo.Rep as TyCoRep
+  import GHC.Core.InstEnv
+  import GHC.Core.FamInstEnv
+  import GHC.Core.Multiplicity
+  import GHC.Types.Var
+  import GHC.Types.Var.Set
+  import GHC.Types.Name
+  import GHC.Types.Name.Set
+  import GHC.Types.Name.Reader
+  import GHC.Types.Name.Occurrence as OccName
+  import GHC.Types.Avail
+  import GHC.Types.Id.Info
+  import GHC.Types.Unique.Supply
+  import GHC.Types.SourceFile
+  import GHC.Types.Fixity.Env
+  import GHC.Types.ForeignStubs
+  import GHC.Types.HpcInfo
+  import GHC.Unit.Types
+  import GHC.Unit.Module.ModGuts
+  import GHC.Unit.Module.Deps
+  import GHC.Unit.Module.Warnings
+
+  import GHC.Data.IOEnv
 
   import Control.Monad.Reader
   import Control.Monad.Writer
-
-  import UniqSupply
-
 
   import Control.Applicative ( Alternative(..) )
 
   import Data.Time.Clock
   import qualified Data.Text as T
   import qualified Data.Text.Encoding as T
-  import IOEnv
-  import Data.Functor
-  import SimplUtils (mkCase)
-  import Data.Kind
 
   import qualified Data.HashMap.Strict as HM
   import Data.Foldable (foldl')
@@ -186,7 +184,8 @@ module FtoCore where
   compileToCore :: FModule -> IO (DynFlags -> ModSummary, ModGuts)
   compileToCore mod@MkFM {fm_name, fm_bindings}
       = let mname = T.unpack fm_name
-            modl = mkModule (stringToUnitId.T.unpack $ fm_name) (mkModuleName.T.unpack $ fm_name)
+            modUnit :: Unit = stringToUnit.T.unpack $ fm_name
+            modl :: Module = mkModule (modUnit) (mkModuleName.T.unpack $ fm_name)
         in do
           FTCWriter {exports, tcs, insts, binds} <- execFTCM (FTCReader modl (error "Need to figure out what to use as char mask") mempty) $ compileMod mod
           let deps = noDependencies
@@ -217,7 +216,7 @@ module FtoCore where
                   mg_module          = modl,
                   mg_hsc_src         = HsSrcFile,
                   mg_loc             = noSrcSpan,
-                  mg_exports         = Avail <$> nameSetElemsStable exports,
+                  mg_exports         = Avail . NormalGreName <$> nameSetElemsStable exports,
                   mg_deps            = deps,
                   mg_usages          = [],  -- TODO!
                   mg_used_th         = False,
@@ -233,7 +232,6 @@ module FtoCore where
                   mg_foreign_files   = [],
                   mg_warns           = NoWarnings,
                   mg_hpc_info        = NoHpcInfo False,
-                  mg_complete_sigs   = [],
                   mg_modBreaks       = Nothing,
                   mg_anns            = [],
                   mg_inst_env        = emptyInstEnv,
@@ -253,7 +251,7 @@ module FtoCore where
   compileDec :: FDeclaration 0 -> FTCM a -> FTCM a
   compileDec dec rest = case dec of  -- N.b. this pattern match IS total because Data declerations can only happen
                       -- at Type level (1) not term level as guaranteed by constraint DataDec :: (1 <= n) ...
-    F.ValDecl True (MkBinding (MkBndr name sig) fe) -> do
+    F.ValDecl Exported (MkBinding (MkBndr name sig) fe) -> do
           eName <- registerNameExternal.T.unpack $ name
           withName (name, eName) $ do
             (eTy, env) <- typeToCore sig
@@ -264,7 +262,7 @@ module FtoCore where
                 appBind $ Syn.NonRec var expr
                 appExport eName
                 rest
-    F.ValDecl False (MkBinding (MkBndr name sig) fe) -> do
+    F.ValDecl Private (MkBinding (MkBndr name sig) fe) -> do
           eName <- registerNameInternal.T.unpack $ name
           withName (name, eName) $ do
             (eTy, env) <- typeToCore sig
@@ -288,7 +286,7 @@ module FtoCore where
   -}
 
   createLocalVar :: Name -> TyCoRep.Type -> Var
-  createLocalVar name ty = mkLocalVar VanillaId name ty vanillaIdInfo --TODO: Investigate meaning of VanillaID
+  createLocalVar name ty = mkLocalVar VanillaId name Many {-multiplicity-}  ty vanillaIdInfo --TODO: Investigate meaning of VanillaID
 
   exprToCore :: FExpr 0 n -> FTCM Syn.CoreExpr
   exprToCore = \case
@@ -336,13 +334,14 @@ module FtoCore where
   typeToCore = \case
     Var (MkBndr name _) -> (,) <$> (TyCoRep.TyVarTy <$> getTyVarByName name) <*> pure mempty
 
-    --App fs fs' -> (,) <$> (TyCoRep.AppTy <$> (fst <$> typeToCore fs) <*> (fst <$> typeToCore fs')) <*> pure mempty
+    App fs1' fs2' -> let (fs1, fs2) = extractSigApp fs1' fs2'
+                     in  (,) <$> (TyCoRep.AppTy <$> (fst <$> typeToCore fs1) <*> (fst <$> typeToCore fs2)) <*> pure mempty
 
     Map fs fs' -> do
       (ty1, env1) <- typeToCore fs
       local (appEnv env1) $ do
         (ty2, env2) <- typeToCore fs'
-        return (TyCoRep.FunTy VisArg ty1 ty2, env1 <> env2)    -- Vis arg indicates (->) invis indicates (=>) when constraints are implemented
+        return (TyCoRep.FunTy VisArg Many ty1 ty2, env1 <> env2)    -- Vis arg indicates (->) invis indicates (=>) when constraints are implemented
 
     Forall (MkBndr name sig) fs -> do
       (kind, kEnv) <- kindToCore sig

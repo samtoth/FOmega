@@ -19,11 +19,20 @@ import Data.Text.Encoding as T
 import qualified Data.Text.Encoding as BS
 import Data.Text.Lazy as LT
 import Data.Text.Lazy.Encoding as LT
-import FastString
-import GHC
-import GHC.Generics
 import Text.LaTeX (IsString, LaTeX, LaTeXT, Texy (texy), fromString, textell, runLaTeXT)
 import Text.LaTeX.Base.Class
+
+import GHC.Core hiding (AnnBind, AnnExpr, AnnType, AnnAlt)
+import GHC.Core.TyCo.Rep
+import GHC.Core.TyCon
+import GHC.Core.Utils as CoreUtils
+import GHC.Types.Literal
+import GHC.Types.Var
+import GHC.Types.Name.Occurrence
+import GHC.Data.FastString
+import GHC
+import GHC.Unit.Module.Name
+import GHC.Generics
 
 data ProcessedModule = MkMod
   { pm_name :: T.Text,

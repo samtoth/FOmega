@@ -5,31 +5,19 @@
 module GhcDriver where
 
 import Control.Exception
-import CoreSyn (CoreProgram)
-import qualified CoreSyn as Syn
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
 import Debug.Trace
-import GHC (CoreModule, InteractiveImport (IIDecl), cm_binds, compileToCoreSimplified, guessTarget, mkModuleName, runGhc, setContext, setSessionDynFlags, setTargets, simpleImportDecl, gcatch)
 import GHC.Paths (libdir)
-import GhcMonad
 import System.Directory
 import System.Environment
 import qualified System.IO as IO
 
--- Core Passes
-import CorePrep (corePrepPgm)
-import CoreToStg (coreToStg)
-import SimplStg (stg2stg)
-import CmmInfo (cmmToRawCmm )
-import CmmLint (cmmLint)
-import CmmPipeline (cmmPipeline)
-import CmmBuildInfoTables (emptySRT)
-import AsmCodeGen ( nativeCodeGen )
-import UniqSupply ( mkSplitUniqSupply, initUs_ )
+import GHC
+import GHC.Core as CoreSyn
+import GHC.Types.SourceError
 
-import qualified Stream
-import GhcPlugins
+import GHC.Driver.Monad
 
 compileSource :: T.Text -> IO (Either String CoreModule)
 compileSource t = do
@@ -39,9 +27,9 @@ compileSource t = do
       cleanup
       pure . Right $ core
     )
-    `gcatch` (\(e :: SourceError) -> failure e)
-    `gcatch` (\(g :: GhcApiError) -> failure g)
-    `gcatch` (\(se :: SomeException) -> failure se)
+    `catch` (\(e :: SourceError) -> failure e)
+    `catch` (\(g :: GhcApiError) -> failure g)
+    `catch` (\(se :: SomeException) -> failure se)
   where
     cleanup = do
       tempFile <- fmap (++ "/tempCoreDraw.hs") getTemporaryDirectory

@@ -6,8 +6,7 @@
 
 module CoreDraw (drawAnnModule, drawModule, ProcessedModule) where
 
-import CoreSyn hiding (AnnBind)
-import CoreUtils
+
 import Data.Aeson (ToJSON, object, toJSON, (.=))
 import Data.ByteString as BS
 import Data.ByteString.Lazy as LB
@@ -18,27 +17,29 @@ import Data.Text.Encoding as T
 import qualified Data.Text.Encoding as BS
 import Data.Text.Lazy as LT
 import Data.Text.Lazy.Encoding as LT
-import FastString
-import GHC
-import GHC.Generics
-import Literal
-import Module
-import OccName (HasOccName (occName), OccName (occNameFS))
 import Text.LaTeX
 import Text.LaTeX.Base.Class
 import Text.LaTeX.Packages.AMSFonts (mathbb)
 import Text.LaTeX.Packages.AMSMath (align, cases, medspace, space)
 import Text.LaTeX.Packages.AMSSymb (vartriangleright)
 import Text.LaTeX.Packages.Relsize (textlarger)
-import TyCoRep
-import TyCon
-import Util (partitionWith)
-import Var
 import Data.Module
 import Data.AnnCore
 import Control.Monad.Reader
 import AnnDraw
 
+import GHC.Core hiding (AnnBind, AnnExpr, AnnType, AnnAlt)
+import GHC.Core.TyCo.Rep
+import GHC.Core.TyCon
+import GHC.Core.Utils as CoreUtils
+import GHC.Types.Literal
+import GHC.Types.Var
+import GHC.Types.Name.Occurrence
+import GHC.Data.FastString
+import GHC
+import GHC.Unit.Module.Name
+import GHC.Generics
+import GHC.Utils.Misc (partitionWith)
 
 renderTex :: LaTeX -> T.Text
 renderTex = render
@@ -118,7 +119,7 @@ instance Texy CoreModule where
         )
 
 instance Texy CoreBind where
-  texy (NonRec bind expr) = mathrm (texy $textOccName bind) <> "=" <> texy expr <> lnbk
+  texy (NonRec bind expr) = mathrm (texy $ textOccName bind) <> "=" <> texy expr <> lnbk
   texy (Rec binds) = multicolumn 3 [LeftColumn] (array Nothing [VerticalLine, RightColumn, CenterColumn, LeftColumn] (mconcat . fmap f $ binds)) <> lnbk
     where
       f (bind, expr) = mathrm (texy $ textOccName bind) <> "=" <> texy expr <> lnbk
@@ -143,7 +144,7 @@ instance Texy CoreExpr where
     Case expr bind ty arms ->
       "Case" !: texy ty <> quad <> texy bind <> "of" <> lnbk
         <> raw "&&"
-        <> cases (mconcat . fmap ((<> lnbk) . texy . MkAlt) $ arms)
+        <> cases (mconcat . fmap ((<> lnbk) . texy ) $ arms)
     Cast expr coerc -> texy expr <> vartriangleright <> texy coerc
     Tick _ expr -> texy expr
     Coercion co -> texy co
@@ -155,7 +156,7 @@ instance Texy Coercion where
     TyConAppCo ro tc cos -> "TyConAppCo"
     AppCo co co' -> "AppCo"
     ForAllCo var co co' -> forall <> texy var <> ". " <> quad <> "Coercion"
-    FunCo ro co co' -> "FunCo"
+    FunCo ro mult co co' -> "FunCo"
     CoVarCo var -> texy var
     AxiomInstCo ca n cos -> "AxiomInstCo"
     AxiomRuleCo car cos -> "AxiomRuleCo"
@@ -169,10 +170,9 @@ instance Texy Coercion where
     SubCo co -> "SubCo"
     HoleCo ch -> "HoleCo"
 
-newtype AltNt = MkAlt (Alt CoreBndr)
 
-instance Texy AltNt where
-  texy (MkAlt (conType, binds, expr)) =
+instance Texy (Alt CoreBndr) where
+  texy (Alt conType binds expr) =
     texy conType
       <> medspace
       <> (mconcat . fmap ((<> medspace) . texy)) binds
@@ -197,7 +197,7 @@ instance Texy Type where
     AppTy t1 t2 -> (case t1 of {AppTy _ _ -> id ; _ -> autoParens }) (texy t1 <> space <> texy t2)
     TyConApp t ts -> texy t <> space <> (mconcat . fmap texy) ts
     ForAllTy bind t -> forall <> texy bind <> ". " <> texy t
-    FunTy _ t1 t2 -> autoParens (texy t1 <> rightarrow <> texy t2)
+    FunTy _ _ t1 t2 -> autoParens (texy t1 <> rightarrow <> texy t2)
     LitTy lit -> case lit of
       NumTyLit int -> mathbb $ texy int
       StrTyLit fs -> textbf $ "\"" <> texy fs <> "\""

@@ -12,18 +12,23 @@ import Text.LaTeX.Packages.AMSFonts (mathbb)
 import Text.LaTeX.Packages.AMSMath (align, cases, medspace, space, text)
 import Text.LaTeX.Packages.AMSSymb (vartriangleright)
 import Text.LaTeX.Packages.Relsize (textlarger)
-import TyCoRep
-import Literal
+
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Encoding as BS
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
-import FastString
-import TyCon
-import Var
-import CoreSyn hiding (AnnExpr, AnnBind, AnnAlt)
-import Name
+
+import GHC.Core hiding (AnnBind, AnnExpr, AnnType, AnnAlt)
+import GHC.Core.TyCo.Rep
+import GHC.Core.TyCon
+import GHC.Core.Utils as CoreUtils
+import GHC.Types.Literal
+import GHC.Types.Var
+import GHC.Types.Name.Occurrence
+import GHC.Data.FastString
+import GHC
+import GHC.Unit.Module.Name
 
 instance Texy AnnModule where
   texy (MkAM _ name mainBinds specialBinds) = documentclass [] article <> title (texy name) <> document ( maketitle <> align (
@@ -103,7 +108,7 @@ instance Texy Literal where
   texy = \case
     LitChar c -> "'" <> texttt (texy c) <> "''"
     LitString s -> "\"" <> textit (texy . BS.decodeUtf8 $s) <> "\""
-    LitNumber litTy int ty -> texy int
+    LitNumber litTy int -> texy int
     LitFloat rat -> texy rat
     LitDouble rat -> texy rat
     other -> "unkown literal"

@@ -6,21 +6,21 @@
 
 module Data.AnnCore where
 
-import CoreSyn hiding (AnnBind, AnnExpr, AnnType, AnnAlt)
-import Literal
+import GHC.Core hiding (AnnBind, AnnExpr, AnnType, AnnAlt)
+import GHC.Core.TyCo.Rep
+import GHC.Core.Utils as CoreUtils
+import GHC.Types.Literal
+import GHC.Types.Var
+import GHC.Types.Name.Occurrence
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Encoding as BS
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
-import FastString
+import GHC.Data.FastString
 import GHC
-import Module
-import OccName
-import TyCoRep
-import qualified CoreUtils
-import Var
-import Util (partitionWith)
+import GHC.Utils.Misc (partitionWith)
+import GHC.Unit.Module.Name
 
 data AnnModule = MkAM
   { am_mod :: CoreModule,
@@ -147,7 +147,7 @@ annotateBndr b =
     else TypeBndr name (annotateType.tyVarKind$b)
 
 annotateAlt :: Alt CoreBndr -> AnnAlt
-annotateAlt (altCon, binds, expr) = MkAA (altCon, (flip annotateBndr) True <$> binds, annotateExpr expr)
+annotateAlt (Alt altCon binds expr) = MkAA (altCon, (flip annotateBndr) True <$> binds, annotateExpr expr)
 
 annotateExpr :: CoreExpr -> AnnExpr AnnTerm
 annotateExpr e = let eTy = annotateType . CoreUtils.exprType $ e
@@ -194,11 +194,11 @@ annotateType t =
     ForAllTy (Bndr var _) t1 -> let at1 = annotateType t1
                                     bndr = annotateBndr var True
         in MkAE (IForAllTy bndr at1,t) tTy (ae_depth at1) False False
-    FunTy _ t1 t2 -> let at1 = annotateType t1
-                         at2 = annotateType t2
-                         at1' = case at1 of
-                                MkAE (IFunTy _ _, _) _ _ _ _ -> at1 {ae_parens = True}
-                                _ -> at1
+    FunTy _ _ t1 t2 -> let at1 = annotateType t1
+                           at2 = annotateType t2
+                           at1' = case at1 of
+                                   MkAE (IFunTy _ _, _) _ _ _ _ -> at1 {ae_parens = True}
+                                   _ -> at1
         in MkAE (IFunTy at1' at2, t) tTy (1 + ae_depth at1 + ae_depth at2) False False
     LitTy lit -> base $ ILitTy lit
     CastTy t1 co -> let at1 = annotateType t1
