@@ -21,89 +21,101 @@ maintainer:         sam@toth.co.uk
 -- category:
 extra-source-files: CHANGELOG.md
 
-executable simpleCoreDoc
+executable gtkApp
     main-is:          Main.hs
 
     build-depends:    base
-                    , coreDraw
-                    , HaTeX
-                    , directory
-    
-    hs-source-dirs:   simpleCoreDoc
-    default-language: Haskell2010
+                    , gi-gtk < 4
+                    , haskell-gi-base
+                    , reflex-gi-gtk
+                    , gi-gdkpixbuf >= 2.0.26
 
--- executable backend
+    hs-source-dirs:   gtkApp
+
+    ghc-version: 8.10.*
+
+-- executable simpleCoreDoc
 --     main-is:          Main.hs
 
---     -- Modules included in this executable, other than Main.
---     other-modules: 
+--     build-depends:    base
+--                     , coreDraw
+--                     , HaTeX
+--                     , directory
+    
+--     hs-source-dirs:   simpleCoreDoc
+--     default-language: Haskell2010
+
+-- -- executable backend
+-- --     main-is:          Main.hs
+
+-- --     -- Modules included in this executable, other than Main.
+-- --     other-modules: 
+
+
+-- --     -- LANGUAGE extensions used by modules in this package.
+-- --     -- other-extensions:
+-- --     build-depends:    base >= 4.16
+-- --                     , bytestring
+-- --                     , http-media
+-- --                     , servant
+-- --                     , servant-server
+-- --                     , string-conversions
+-- --                     , text
+-- --                     , wai
+-- --                     , wai-cors
+-- --                     , wai-extra
+-- --                     , warp
+-- --                     , aeson
+-- --                     , coreDraw
+
+-- --     hs-source-dirs:   app
+-- --     default-language: Haskell2010
+
+-- library coreDraw
+
+--     exposed-modules: GhcDriver
+--                     ,CoreDraw
+--                     ,AnnDraw
+--                     ,Data.Module
+--                     ,Data.AnnCore
 
 
 --     -- LANGUAGE extensions used by modules in this package.
 --     -- other-extensions:
---     build-depends:    base >= 4.16
+--     build-depends:    base
+--                     , ghc
+--                     , ghc-paths
 --                     , bytestring
---                     , http-media
---                     , servant
---                     , servant-server
+--                     , directory
 --                     , string-conversions
 --                     , text
---                     , wai
---                     , wai-cors
---                     , wai-extra
---                     , warp
+--                     , transformers
+--                     , HaTeX
+--                     , fomega
+--                     , mtl
 --                     , aeson
---                     , coreDraw
 
---     hs-source-dirs:   app
+--     hs-source-dirs:   coreDraw
 --     default-language: Haskell2010
 
-library coreDraw
-
-    exposed-modules: GhcDriver
-                    ,CoreDraw
-                    ,AnnDraw
-                    ,Data.Module
-                    ,Data.AnnCore
+-- library fomega
+--     exposed-modules:  Data.FSyn
+--                     , FtoCore
 
 
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-    build-depends:    base
-                    , ghc
-                    , ghc-paths
-                    , bytestring
-                    , directory
-                    , string-conversions
-                    , text
-                    , transformers
-                    , HaTeX
-                    , fomega
-                    , mtl
-                    , aeson
+--     build-depends:    base
+--                     , text
+--                     , ghc
+--                     , time
+--                     , mtl
+--                     , containers
+--                     , unordered-containers
+--                     , singletons
+--                     , singletons-base
 
-    hs-source-dirs:   coreDraw
-    default-language: Haskell2010
+--     ghc-options:     -Wall -fno-warn-unticked-promoted-constructors
 
-library fomega
-    exposed-modules:  Data.FSyn
-                    , FtoCore
+--     default-extensions: ScopedTypeVariables, GADTs, DataKinds, TypeFamilies, TypeOperators
 
-
-    build-depends:    base
-                    , text
-                    , ghc
-                    , time
-                    , mtl
-                    , containers
-                    , ghc-typelits-natnormalise
-                    , unordered-containers
-                    , singletons
-                    , singletons-base
-
-    ghc-options:     -Wall -fno-warn-unticked-promoted-constructors
-
-    default-extensions: ScopedTypeVariables, GADTs, DataKinds, TypeFamilies, TypeOperators
-
-    hs-source-dirs:   FOmega
-    default-language: Haskell2010
+--     hs-source-dirs:   FOmega
+--     default-language: Haskell2010

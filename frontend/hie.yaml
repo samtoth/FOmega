@@ -1,0 +1,4 @@
+cradle:
+  cabal:
+    - path: "gtkApp/Main.hs"
+      component: "frontend:exe:frontend"
